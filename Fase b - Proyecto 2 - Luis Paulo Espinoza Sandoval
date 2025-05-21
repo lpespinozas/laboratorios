@@ -1,0 +1,527 @@
+public class Program
+{
+    public static void Main() //De aca empieza el codigo 
+    {
+        Console.Write("Ingrese el nombre del Jugador 1: ");
+        string nombreJugador1 = Console.ReadLine();
+        Jugador jugador1 = new Jugador(nombreJugador1);
+
+        Console.Write("Ingrese el nombre del Jugador 2: ");
+        string nombreJugador2 = Console.ReadLine();
+        Jugador jugador2 = new Jugador(nombreJugador2);
+
+        ConfigurarBarcos(jugador1);
+        ConfigurarBarcos(jugador2);
+
+        Juego juego = new Juego(jugador1, jugador2);
+        juego.Iniciar();
+
+        if (jugador1.Puntaje > jugador2.Puntaje)
+            Console.WriteLine($"{jugador1.Nombre} gana la partida!");
+        else if (jugador2.Puntaje > jugador1.Puntaje)
+            Console.WriteLine($"{jugador2.Nombre} gana la partida!");
+        else
+            Console.WriteLine("¡Es un empate!");
+    }
+
+    public static void ConfigurarBarcos(Jugador jugador) //Pa colocar los barcos en el tablero cada vez 
+    {
+        List<Barco> barcos = new List<Barco> //guarda los tipos de barco y el tamaño
+    {
+        new Barco("Submarino", 2, 2),
+        new Barco("Fragata", 3, 3),
+        new Barco("Destructor", 4, 4)
+    };
+
+        while (true)
+        {
+            LimpiarBarcos(jugador);
+
+
+            foreach (var barco in barcos)
+            {
+                List<(int, int)> coordenadas = ObtenerCoordenadasAleatorias(barco, jugador);
+                jugador.AgregarBarco(barco, coordenadas);
+            }
+
+            Console.Clear();
+            Console.WriteLine($"posicion random para {jugador.Nombre}:\n");
+            jugador.MostrarFlota();
+            Console.WriteLine();
+
+            Console.Write("¿Quieres jugar con este mapa? (s/n): ");
+            string respuesta = Console.ReadLine().ToLower();
+
+            if (respuesta == "s")
+            {
+                Console.WriteLine("Posicion de barcos guardada eee.");
+                break;
+            }
+        }
+    }
+
+
+    public static void LimpiarBarcos(Jugador jugador) //reiniciar el tablero
+    {
+        foreach (var barco in jugador.Barcos)
+        {
+            foreach (var (fila, columna) in barco.Coordenadas)
+            {
+                jugador.FlotaNaval[fila, columna] = '~';
+            }
+        }
+
+        jugador.Barcos.Clear();
+    }
+
+    public static List<(int, int)> ObtenerCoordenadasAleatorias(Barco barco, Jugador jugador)  //Random paa las coordenads de barco 
+    {
+        Random random = new Random();
+        List<(int, int)> coordenadas = new List<(int, int)>(); // listta para guardar coordenadas que si son validas (no me salio con el foreach)
+
+        bool colocado = false;
+        while (!colocado) //Se repite por si se traspasa un barco con otro   
+        {
+            coordenadas.Clear();
+            int fila = random.Next(0, 6);
+            int columna = random.Next(0, 6);
+            bool vertical = barco.Nombre == "Fragata" || (barco.Nombre == "Destructor" && random.Next(2) == 0);
+
+            if (vertical && fila + barco.Tamaño <= 6) //Comprobacion de que el espacio esta libre
+            {
+                bool libre = true;
+                for (int i = 0; i < barco.Tamaño; i++)
+                {
+                    if (jugador.FlotaNaval[fila + i, columna] != '~')
+                    {
+                        libre = false;
+                        break;
+                    }
+                }
+                if (libre)
+                {
+                    for (int i = 0; i < barco.Tamaño; i++)
+                    {
+                        coordenadas.Add((fila + i, columna));
+                    }
+                    colocado = true;
+                }
+            }
+            else if (!vertical && columna + barco.Tamaño <= 6)
+            {
+                bool libre = true;
+                for (int i = 0; i < barco.Tamaño; i++)
+                {
+                    if (jugador.FlotaNaval[fila, columna + i] != '~')
+                    {
+                        libre = false;
+                        break;
+                    }
+                }
+                if (libre)
+                {
+                    for (int i = 0; i < barco.Tamaño; i++)
+                    {
+                        coordenadas.Add((fila, columna + i));
+                    }
+                    colocado = true;
+                }
+            }
+        }
+
+        return coordenadas;
+    }
+}
+
+
+
+
+
+public class Barco
+{
+    public string Nombre //Propiedades para iniciar los baARCos
+    { get; set; }
+    public int Tamaño 
+    { get; set; }
+    public List<(int fila, int columna)> Coordenadas //Guarda las coordenadas de los barcos y las borra despues si les pegan
+    { get; set; }
+    public bool Hundido => Coordenadas.Count == 0; //count es como Length pero para listas 
+    public int Puntos 
+    { get; set; }
+    public bool EsVertical 
+    { get; set; }
+
+    public Barco(string nombre, int tamaño, int puntos, bool esVertical = false) //onstructor para inizialicar 
+    {
+        Nombre = nombre;
+        Tamaño = tamaño;
+        Coordenadas = new List<(int, int)>();
+        Puntos = puntos;
+        EsVertical = esVertical;
+    }
+
+    public bool RecibirImpacto(int fila, int columna) //Revisa si el varco fue golpeado y lo borra 
+    {
+        for (int i = 0; i < Coordenadas.Count; i++)
+        {
+            if (Coordenadas[i].fila == fila && Coordenadas[i].columna == columna)
+            {
+                Coordenadas.RemoveAt(i);
+                return true;
+            }
+        }
+        return false;
+    }
+}
+
+
+public class Juego
+{
+    private Jugador jugador1;
+    private Jugador jugador2;
+
+    public Juego(Jugador jugador1, Jugador jugador2) //Constructor para que no se borren los jugadores
+    {
+        this.jugador1 = jugador1;
+        this.jugador2 = jugador2;
+    }
+
+    public void Iniciar() 
+    {
+        bool juegoTerminado = false;
+
+        for (int turno = 1; turno <= 15; turno++) //Comienza el juego con 16 turnos 
+        {
+            if (Turno(jugador1, jugador2, turno))
+            {
+                juegoTerminado = true;
+                break;
+            }
+
+            if (!jugador2.VerificarDerrota())
+            {
+                if (Turno(jugador2, jugador1, turno))
+                {
+                    juegoTerminado = true;
+                    break;
+                }
+            }
+
+            if (jugador1.VerificarDerrota() || jugador2.VerificarDerrota())
+            {
+                juegoTerminado = true;
+                break;
+            }
+        }
+
+        if (!juegoTerminado) MostrarResultadoFinal();
+    }
+    private bool Turno(Jugador atacante, Jugador defensor, int turno) //cambia el turno por cada ataque y llama a los tableros para imprimir
+
+    {
+        atacante.DibujarTableros(turno);
+
+        Console.WriteLine("\n1. Lanzar un ataque");
+        Console.WriteLine("2. Rendirse");
+        string opcion = "";
+
+        while (true)
+        {
+            Console.Write("Seleccione una opción: ");
+            opcion = Console.ReadLine();
+
+            if (opcion == "1" || opcion == "2")
+            {
+                break;
+            }
+            else
+            {
+                Console.WriteLine("Opción inválida. Por favor, elija '1' para atacar o '2' para rendirse.");
+            }
+        }
+
+        if (opcion == "2")
+        {
+            Console.WriteLine($"\n{atacante.Nombre} se ha rendido. ¡{defensor.Nombre} gana!");
+            return true;
+        }
+        else if (opcion == "1")
+        {
+            var (fila, columna) = atacante.LanzarMisil();
+
+            bool acierto = defensor.RecibirMisil(fila, columna);
+            atacante.AnotarResultado(fila, columna, acierto);
+
+            Console.WriteLine(acierto ? "¡Impacto!" : "Agua...");
+            Console.WriteLine("Presiona una tecla para continuar...");
+            Console.ReadKey();
+        }
+
+        return false;
+    }
+
+
+    private void MostrarResultadoFinal() //imprimir quien gano la wea 
+    {
+        Console.Clear();
+        Console.WriteLine("¡Juego terminado!\n");
+        Console.WriteLine($"{jugador1.Nombre} - Puntaje: {jugador1.Puntaje}");
+        Console.WriteLine($"{jugador2.Nombre} - Puntaje: {jugador2.Puntaje}");
+
+        if (jugador1.Puntaje > jugador2.Puntaje)
+            Console.WriteLine($"\n{jugador1.Nombre} gana la partida.");
+        else if (jugador2.Puntaje > jugador1.Puntaje)
+            Console.WriteLine($"\n{jugador2.Nombre} gana la partida.");
+        else
+            Console.WriteLine("\n¡Empate!");
+    }
+}
+
+public class Jugador
+{
+    public string Nombre
+    { get; set; }
+    public char[,] FlotaNaval //Tablero del jugador que ataca
+    { get; set; }
+    public char[,] TableroAtaque //Tablero del jugador que recibe los cuentazos 
+    { get; set; }
+    public List<Barco> Barcos
+    { get; set; }
+    public int Puntaje
+    { get; set; }
+    public int DisparosRestantes //enpiesa con 15 disparos 
+    { get; set; } = 15;
+
+    public Jugador(string nombre) //inisialisa nombre y tablero vacio para los dos jugadores
+    {
+        Nombre = nombre;
+        FlotaNaval = CrearMatriz();
+        TableroAtaque = CrearMatriz();
+        Barcos = new List<Barco>();
+    }
+
+    private char[,] CrearMatriz() //Arma la matriz vacia con agua
+    {
+        char[,] matriz = new char[6, 6];
+        for (int i = 0; i < 6; i++)
+            for (int j = 0; j < 6; j++)
+                matriz[i, j] = '~';
+        return matriz;
+    }
+
+    public void DibujarTableros(int turnoActual) //Ensena el tablero del jugador que le toca y el del otro escondido menos con los impactos ya dados 
+    {
+        Console.Clear();
+        Console.WriteLine($"Turno {turnoActual} - {Nombre}");
+        Console.WriteLine($"Puntaje: {Puntaje} | Disparos restantes: {DisparosRestantes}");
+        Console.WriteLine("\nTu tablero:");
+        MostrarMatriz(FlotaNaval);
+        Console.WriteLine("\nTablero enemigo (el otro we):");
+        MostrarMatriz(TableroAtaque);
+    }
+   
+    private void MostrarMatriz(char[,] matriz) //Mostrar con colores el mar del jugador y sus barcos
+    {
+        Console.WriteLine("   1 2 3 4 5 6");
+        for (int i = 0; i < 6; i++)
+        {
+            Console.Write((char)('A' + i) + "  ");
+            for (int j = 0; j < 6; j++)
+            {
+                char simbolo = matriz[i, j];
+                Barco barco = null;
+
+                // Buscar barco que contenga la coordenada (i,j)
+                foreach (var b in Barcos)
+                {
+                    foreach (var coord in b.Coordenadas)
+                    {
+                        if (coord.fila == i && coord.columna == j)
+                        {
+                            barco = b;
+                            break;
+                        }
+                    }
+                    if (barco != null) break;
+                }
+
+                if (simbolo == 'B' && barco != null)
+                {
+                    if (barco.Nombre == "Destructor")
+                        Console.ForegroundColor = ConsoleColor.Red;
+                    else if (barco.Nombre == "Fragata")
+                        Console.ForegroundColor = ConsoleColor.Green;
+                    else if (barco.Nombre == "Submarino")
+                        Console.ForegroundColor = ConsoleColor.Yellow;
+                    else
+                        Console.ResetColor();
+                }
+                else
+                {
+                    switch (simbolo)
+                    {
+                        case '~':
+                            Console.ForegroundColor = ConsoleColor.Blue;
+                            break;
+                        case 'O':
+                            Console.ForegroundColor = ConsoleColor.Magenta;
+                            break;
+                        case 'X':
+                            Console.ForegroundColor = ConsoleColor.Gray;
+                            break;
+                        default:
+                            Console.ResetColor();
+                            break;
+                    }
+                }
+
+                Console.Write(simbolo + " ");
+                Console.ResetColor();
+            }
+            Console.WriteLine();
+        }
+    }
+
+
+
+    public (int, int) LanzarMisil()
+    {
+        while (true)
+        {
+            Console.Write("Ingrese la coordenada para atacar (ej. A-3): ");
+            string entrada = Console.ReadLine().ToUpper(); //EL Judador mete la coordenada como A-1, b-3 y asi
+
+            if (ConvertirCoordenada(entrada, out int fila, out int columna))
+            {
+                if (TableroAtaque[fila, columna] == '~')
+                {
+                    DisparosRestantes--; //menos un disparo
+                    return (fila, columna);
+                }
+                else
+                {
+                    Console.WriteLine("¡Ya atacaste esa coordenada! Intenta de nuevo.");
+                }
+            }
+            else
+            {
+                Console.WriteLine("Coordenadas mal escrtas. Usa el formato A-1, B-3, etc.");
+            }
+        }
+    }
+
+
+    private bool ConvertirCoordenada(string entrada, out int fila, out int columna) //ocnvierte la coordenada de a-1 y asi a una coordenada de la matriz para el tablero
+    {
+        fila = -1;
+        columna = -1;
+
+        char[] letras = { 'A', 'B', 'C', 'D', 'E', 'F' };
+        int[] indices = { 0, 1, 2, 3, 4, 5 };
+
+        entrada = entrada.ToUpper();
+
+        if (entrada.Length < 3 || entrada[1] != '-') return false; //confirmo que si hay tres caracteres y el segundo es un guion
+
+        char letra = entrada[0]; //saco la letra
+        string numeroStr = entrada.Substring(2); //saco el numero 
+
+        int indiceLetra = -1;
+        for (int i = 0; i < letras.Length; i++)
+        {
+            if (letras[i] == letra)
+            {
+                indiceLetra = indices[i];
+                break;
+            }
+        }
+
+        if (indiceLetra == -1) return false;
+
+        if (!int.TryParse(numeroStr, out columna) || columna < 1 || columna > 6) return false;
+
+        fila = indiceLetra;
+        columna -= 1;
+
+        return true;
+    }
+
+
+    public bool RecibirMisil(int fila, int columna) //Verificar si el disparo le pego al barco o al aguaaa
+    {
+        foreach (var barco in Barcos)
+        {
+            if (barco.RecibirImpacto(fila, columna))
+            {
+                FlotaNaval[fila, columna] = 'O';
+                if (barco.Hundido)
+                {
+                    Puntaje += barco.Puntos;
+                    Console.WriteLine($"¡Tu {barco.Nombre} ha sido hundido!");
+                }
+                return true;
+            }
+        }
+
+        FlotaNaval[fila, columna] = 'X';
+        return false;
+    }
+
+    public void AnotarResultado(int fila, int columna, bool acierto)
+    {
+        TableroAtaque[fila, columna] = acierto ? 'O' : 'X';
+    }
+
+    public bool VerificarDerrota()
+    {
+        return Barcos.TrueForAll(b => b.Hundido) || DisparosRestantes == 0;
+    }
+
+    public void AgregarBarco(Barco barco, List<(int, int)> coordenadas)
+    {
+        barco.Coordenadas.AddRange(coordenadas);
+        Barcos.Add(barco);
+
+        foreach (var (fila, columna) in coordenadas)
+        {
+            FlotaNaval[fila, columna] = 'B';
+        }
+    }
+    public void MostrarFlota()
+    {
+        Console.WriteLine("   1 2 3 4 5 6");
+        for (int i = 0; i < 6; i++)
+        {
+            Console.Write((char)('A' + i) + "  ");
+            for (int j = 0; j < 6; j++)
+            {
+                char simbolo = FlotaNaval[i, j];
+
+                switch (simbolo) //switch para los colorcitos del tablero
+                {
+                    case 'B':
+                        Console.ForegroundColor = ConsoleColor.Gray; 
+                        break;
+                    case '~':
+                        Console.ForegroundColor = ConsoleColor.Blue;
+                        break;
+                    case 'O':
+                        Console.ForegroundColor = ConsoleColor.DarkRed;
+                        break;
+                    case 'X':
+                        Console.ForegroundColor = ConsoleColor.Gray;
+                        break;
+                    default:
+                        Console.ResetColor();
+                        break;
+                }
+
+                Console.Write(simbolo + " ");
+                Console.ResetColor();
+            }
+            Console.WriteLine();
+        }
+    }
+
+}
+
